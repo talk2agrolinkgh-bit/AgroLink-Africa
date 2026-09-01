@@ -1,0 +1,475 @@
+// ============================================================
+// AGROLINK — DATA MODEL
+// Postgres via Prisma. Run `npm run db:push` after setting DATABASE_URL.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- ENUMS ----------
+
+enum UserRole {
+  VISITOR
+  BUYER
+  SUPPLIER
+  FARMER
+  ACADEMY_STUDENT
+  FARM_PARTICIPANT
+  ADMIN
+}
+
+enum VerificationStatus {
+  VERIFIED
+  PENDING
+  UNVERIFIED
+}
+
+enum SourcingRequestStatus {
+  NEW
+  CONTACTED
+  SOURCING
+  MATCHED
+  NEGOTIATION
+  CLOSED
+  CANCELLED
+}
+
+enum FarmProjectStage {
+  PLANNING
+  LAND_PREPARATION
+  PLANTING
+  GROWING
+  HARVESTING
+  COMPLETED
+}
+
+enum EnrollmentTier {
+  MENTORSHIP_TRAINING
+  VIDEO_ONLY
+}
+
+enum LeadSource {
+  PRODUCT_INQUIRY
+  SOURCING_REQUEST
+  SUPPLIER_SUBMISSION
+  FARM_PARTICIPATION
+  ACADEMY_ENROLLMENT
+  CONTACT_FORM
+}
+
+enum PaymentModel {
+  CASH
+  PRODUCE
+  UNDECIDED
+}
+
+// ---------- CORE USERS ----------
+
+model User {
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  emailVerified DateTime? // set by NextAuth once a magic-link is confirmed
+  image         String?   // NextAuth-conventional field; unused until avatars are added
+  phone         String?   @unique
+  whatsapp      String?
+  name          String?
+  country       String?
+  role          UserRole  @default(VISITOR)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  profile             Profile?
+  supplierProfile     Supplier?
+  sourcingRequests    SourcingRequest[]
+  productInquiries    ProductInquiry[]
+  farmParticipations  FarmParticipant[]
+  enrollments         Enrollment[]
+  documents           Document[]
+  notifications       Notification[]
+  messagesSent        Message[]          @relation("MessageSender")
+  accounts            Account[]
+  sessions            Session[]
+}
+
+// ---------- NEXTAUTH ADAPTER MODELS ----------
+// Standard shape expected by @next-auth/prisma-adapter. Only used by the
+// public-facing Email (magic-link) provider — the admin Credentials
+// provider bypasses the adapter entirely (see src/lib/auth.ts).
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  companyName String?
+  bio       String?
+  avatarUrl String?
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String   // bcrypt hash — never store plaintext; see src/lib/auth.ts
+  createdAt    DateTime @default(now())
+}
+
+// Editable homepage/site text blocks, managed from Admin → CMS.
+model SiteContent {
+  id        String   @id @default(cuid())
+  key       String   @unique // e.g. "homepage_hero", "announcement_banner"
+  label     String   // human-readable label shown in the CMS list
+  value     String   // the actual text/markdown rendered on the site
+  updatedAt DateTime @updatedAt
+}
+
+// ---------- MARKET ----------
+
+model ProductCategory {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  slug     String    @unique
+  products Product[]
+}
+
+model Product {
+  id            String              @id @default(cuid())
+  slug          String              @unique
+  name          String
+  categoryId    String
+  category      ProductCategory     @relation(fields: [categoryId], references: [id])
+  origin        String
+  description   String
+  grade         String?
+  packaging     String?
+  moq           String?              // minimum order quantity, free text (e.g. "1 x 20ft container")
+  availableQty  String?
+  availabilityPeriod String?
+  exportInfo    String?
+  status        VerificationStatus  @default(PENDING)
+  featured      Boolean             @default(false)
+  published     Boolean             @default(false)
+  images        ProductImage[]
+  supplierLinks SupplierProduct[]
+  inquiries     ProductInquiry[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  url       String
+  alt       String?
+}
+
+model ProductInquiry {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  userId      String?  // set automatically if the buyer was signed in when they submitted
+  user        User?    @relation(fields: [userId], references: [id])
+  quantity    String
+  destination String
+  specNotes   String?
+  name        String
+  company     String?
+  email       String
+  whatsapp    String
+  createdAt   DateTime @default(now())
+}
+
+// ---------- SUPPLIERS ----------
+
+model Supplier {
+  id             String              @id @default(cuid())
+  userId         String?             @unique
+  user           User?               @relation(fields: [userId], references: [id])
+  businessName   String
+  country        String
+  location       String
+  contactEmail   String
+  contactPhone   String
+  status         VerificationStatus  @default(PENDING)
+  verificationRecords VerificationRecord[]
+  products       SupplierProduct[]
+  documents      Document[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+model SupplierProduct {
+  id             String    @id @default(cuid())
+  supplierId     String
+  supplier       Supplier  @relation(fields: [supplierId], references: [id])
+  productId      String?
+  product        Product?  @relation(fields: [productId], references: [id])
+  productNameRaw String    // as typed by supplier before admin maps it to a catalogue Product
+  quantity       String
+  grade          String?
+  packaging      String?
+  availability   String?
+  photos         String[]  // stored URLs
+  status         VerificationStatus @default(PENDING)
+  createdAt      DateTime  @default(now())
+}
+
+model VerificationRecord {
+  id          String    @id @default(cuid())
+  supplierId  String
+  supplier    Supplier  @relation(fields: [supplierId], references: [id])
+  reviewedBy  String?   // AdminUser id
+  outcome     VerificationStatus
+  notes       String?
+  createdAt   DateTime  @default(now())
+}
+
+// ---------- BUYERS & SOURCING ----------
+
+model SourcingRequest {
+  id           String                  @id @default(cuid())
+  userId       String?
+  user         User?                   @relation(fields: [userId], references: [id])
+  product      String
+  quantity     String
+  destination  String
+  specNotes    String?
+  timeline     String?
+  name         String
+  company      String?
+  country      String
+  email        String
+  whatsapp     String
+  status       SourcingRequestStatus   @default(NEW)
+  requirements BuyerRequirement[]
+  messages     Message[]
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+}
+
+model BuyerRequirement {
+  id                 String            @id @default(cuid())
+  sourcingRequestId  String
+  sourcingRequest    SourcingRequest   @relation(fields: [sourcingRequestId], references: [id])
+  key                String            // e.g. "certification", "moisture_max"
+  value              String
+}
+
+// ---------- FARM FOR YOU ----------
+
+model FarmProject {
+  id                String            @id @default(cuid())
+  slug              String            @unique
+  name              String
+  region            String
+  crop              String
+  sizeAcres         Float
+  stage             FarmProjectStage  @default(PLANNING)
+  description       String
+  landArrangement   String
+  managementNotes   String
+  timelineNotes     String?
+  paymentModel      PaymentModel      @default(UNDECIDED)
+  published         Boolean           @default(false)
+  updates           FarmUpdate[]
+  participants      FarmParticipant[]
+  images            FarmProjectImage[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+model FarmProjectImage {
+  id            String       @id @default(cuid())
+  farmProjectId String
+  farmProject   FarmProject  @relation(fields: [farmProjectId], references: [id])
+  url           String
+  caption       String?
+}
+
+model FarmUpdate {
+  id            String       @id @default(cuid())
+  farmProjectId String
+  farmProject   FarmProject  @relation(fields: [farmProjectId], references: [id])
+  title         String
+  body          String
+  photoUrls     String[]
+  videoUrls     String[]
+  postedAt      DateTime     @default(now())
+}
+
+model FarmParticipant {
+  id            String       @id @default(cuid())
+  farmProjectId String
+  farmProject   FarmProject  @relation(fields: [farmProjectId], references: [id])
+  userId        String?
+  user          User?        @relation(fields: [userId], references: [id])
+  name          String
+  email         String
+  whatsapp      String
+  notes         String?
+  paymentModel  PaymentModel @default(UNDECIDED)
+  status        String       @default("inquiry") // inquiry -> discussing -> agreed -> active -> closed
+  createdAt     DateTime     @default(now())
+}
+
+// ---------- ACADEMY / CONTRACT COMMAND ----------
+
+model AcademyCourse {
+  id          String            @id @default(cuid())
+  slug        String            @unique
+  title       String            // e.g. "Produce-Sourcing Academy", "Contract Command"
+  description String
+  durationWeeks Int?
+  modules     AcademyModule[]
+  enrollments Enrollment[]
+  published   Boolean           @default(false)
+}
+
+model AcademyModule {
+  id        String          @id @default(cuid())
+  courseId  String
+  course    AcademyCourse   @relation(fields: [courseId], references: [id])
+  order     Int
+  title     String
+  summary   String?
+  lessons   AcademyLesson[]
+}
+
+model AcademyLesson {
+  id          String         @id @default(cuid())
+  moduleId    String
+  module      AcademyModule  @relation(fields: [moduleId], references: [id])
+  order       Int
+  title       String
+  content     String?
+  videoUrl    String?
+  isTheory    Boolean        @default(true)
+  assignments Assignment[]
+}
+
+model Assignment {
+  id        String         @id @default(cuid())
+  lessonId  String
+  lesson    AcademyLesson  @relation(fields: [lessonId], references: [id])
+  prompt    String
+  dueOffsetDays Int?
+}
+
+model Enrollment {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id])
+  courseId    String
+  course      AcademyCourse   @relation(fields: [courseId], references: [id])
+  tier        EnrollmentTier
+  status      String          @default("pending") // pending -> active -> completed -> cancelled
+  payment     Payment?
+  createdAt   DateTime        @default(now())
+}
+
+// ---------- COMMS / OPS ----------
+
+model Message {
+  id                 String            @id @default(cuid())
+  senderId           String?
+  sender             User?             @relation("MessageSender", fields: [senderId], references: [id])
+  sourcingRequestId  String?
+  sourcingRequest    SourcingRequest?  @relation(fields: [sourcingRequestId], references: [id])
+  body               String
+  channel            String            @default("internal") // internal | whatsapp | email
+  createdAt          DateTime          @default(now())
+}
+
+model Lead {
+  id         String      @id @default(cuid())
+  source     LeadSource
+  name       String?
+  email      String?
+  whatsapp   String?
+  payload    Json        // raw form submission for flexibility
+  handled    Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Document {
+  id          String     @id @default(cuid())
+  userId      String?
+  user        User?      @relation(fields: [userId], references: [id])
+  supplierId  String?
+  supplier    Supplier?  @relation(fields: [supplierId], references: [id])
+  url         String
+  label       String?
+  createdAt   DateTime   @default(now())
+}
+
+model Transaction {
+  id          String    @id @default(cuid())
+  reference   String    @unique
+  description String
+  amount      Decimal?
+  currency    String    @default("GHS")
+  status      String    @default("pending")
+  createdAt   DateTime  @default(now())
+}
+
+model Payment {
+  id            String      @id @default(cuid())
+  enrollmentId  String      @unique
+  enrollment    Enrollment  @relation(fields: [enrollmentId], references: [id])
+  amount        Decimal
+  currency      String      @default("GHS")
+  method        String?     // future: mobile money, card, bank transfer
+  status        String      @default("pending")
+  createdAt     DateTime    @default(now())
+}

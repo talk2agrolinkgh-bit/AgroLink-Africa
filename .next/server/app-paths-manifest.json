@@ -1,0 +1,7 @@
+{
+  "/admin/(dashboard)/leads/page": "app/admin/(dashboard)/leads/page.js",
+  "/admin/(dashboard)/farm-projects/page": "app/admin/(dashboard)/farm-projects/page.js",
+  "/(public)/academy/page": "app/(public)/academy/page.js",
+  "/admin/(dashboard)/academy/page": "app/admin/(dashboard)/academy/page.js",
+  "/(public)/page": "app/(public)/page.js"
+}
