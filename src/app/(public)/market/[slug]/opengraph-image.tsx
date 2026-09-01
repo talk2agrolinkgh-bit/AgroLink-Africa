@@ -10,6 +10,8 @@ import { LOGO_DATA_URI } from "@/lib/og-logo";
 export const alt = "AgroLink product listing";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+// See root src/app/opengraph-image.tsx for why this is forced dynamic.
+export const dynamic = "force-dynamic";
 
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

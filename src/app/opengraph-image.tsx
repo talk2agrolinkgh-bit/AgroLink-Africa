@@ -9,6 +9,12 @@ import { LOGO_DATA_URI } from "@/lib/og-logo";
 export const alt = "AgroLink — Africa Produces. AgroLink Connects.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+// Forces this to render on-demand instead of being statically prerendered
+// at build time — avoids a Windows-specific "Invalid URL" crash inside
+// @vercel/og's font loader during `next build` (its internal file:// path
+// construction breaks on Windows-style backslash paths). Has no effect on
+// the final output — the image looks identical either way.
+export const dynamic = "force-dynamic";
 
 export default async function Image() {
   return new ImageResponse(

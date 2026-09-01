@@ -8,16 +8,21 @@ import { db } from "@/lib/db";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://agrolink.africa";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const staticRoutes: MetadataRoute.Sitemap = [
-    { url: `${SITE_URL}/`, changeFrequency: "weekly", priority: 1 },
-    { url: `${SITE_URL}/market`, changeFrequency: "daily", priority: 0.9 },
-    { url: `${SITE_URL}/farm`, changeFrequency: "weekly", priority: 0.8 },
-    { url: `${SITE_URL}/academy`, changeFrequency: "weekly", priority: 0.8 },
-    { url: `${SITE_URL}/sourcing`, changeFrequency: "monthly", priority: 0.7 },
-    { url: `${SITE_URL}/list-product`, changeFrequency: "monthly", priority: 0.7 },
-    { url: `${SITE_URL}/how-it-works`, changeFrequency: "monthly", priority: 0.5 },
-    { url: `${SITE_URL}/contact`, changeFrequency: "monthly", priority: 0.5 },
-  ].map((r) => ({ ...r, lastModified: new Date() }));
+const staticRoutes = [
+  { url: `${SITE_URL}/`, changeFrequency: "weekly", priority: 1 },
+  { url: `${SITE_URL}/market`, changeFrequency: "daily", priority: 0.9 },
+  { url: `${SITE_URL}/farm`, changeFrequency: "weekly", priority: 0.8 },
+  { url: `${SITE_URL}/academy`, changeFrequency: "weekly", priority: 0.8 },
+  { url: `${SITE_URL}/sourcing`, changeFrequency: "monthly", priority: 0.7 },
+  { url: `${SITE_URL}/list-product`, changeFrequency: "monthly", priority: 0.7 },
+  { url: `${SITE_URL}/how-it-works`, changeFrequency: "monthly", priority: 0.5 },
+  { url: `${SITE_URL}/contact`, changeFrequency: "monthly", priority: 0.5 },
+] as const;
+
+const staticSitemapRoutes: MetadataRoute.Sitemap = staticRoutes.map((r) => ({
+  ...r,
+  lastModified: new Date(),
+}));
 
   const [products, farmProjects] = await Promise.all([
     db.product.findMany({ where: { published: true }, select: { slug: true, updatedAt: true } }),
@@ -38,5 +43,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }));
 
-  return [...staticRoutes, ...productRoutes, ...farmRoutes];
+  return [...staticSitemapRoutes, ...productRoutes, ...farmRoutes];
 }

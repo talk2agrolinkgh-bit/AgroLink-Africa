@@ -14,7 +14,7 @@
 // incompatible with database sessions even when an adapter is present for
 // the other provider — this is the standard way to combine the two.
 
-import { NextAuthOptions } from "next-auth";
+import { NextAuthOptions, Session } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import EmailProvider from "next-auth/providers/email";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
@@ -56,9 +56,15 @@ export const authOptions: NextAuthOptions = {
       server: { host: "", port: 0, auth: { user: "", pass: "" } },
       from: process.env.EMAIL_FROM || "AgroLink <hello@agrolink.africa>",
       maxAge: 15 * 60, // magic link valid for 15 minutes
-      async sendVerificationRequest({ identifier, url }) {
-        await sendMagicLinkEmail(identifier, url);
-      },
+      async sendVerificationRequest({
+  identifier,
+  url,
+}: {
+  identifier: string;
+  url: string;
+}) {
+  await sendMagicLinkEmail(identifier, url);
+},
     } as any),
   ],
   callbacks: {
@@ -83,12 +89,10 @@ export const authOptions: NextAuthOptions = {
   },
 };
 
-export function isAdminSession(session: { user?: { role?: string } } | null) {
+export function isAdminSession(session: Session | null) {
   return session?.user?.role === "ADMIN";
 }
 
-// Any authenticated non-admin session — buyer, supplier, farmer, student, or
-// plain visitor who's simply signed in.
-export function isMemberSession(session: { user?: { role?: string } } | null) {
+export function isMemberSession(session: Session | null) {
   return !!session?.user && session.user.role !== "ADMIN";
 }
