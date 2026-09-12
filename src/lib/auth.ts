@@ -14,7 +14,7 @@
 // incompatible with database sessions even when an adapter is present for
 // the other provider — this is the standard way to combine the two.
 
-import { NextAuthOptions, Session } from "next-auth";
+import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import EmailProvider from "next-auth/providers/email";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
@@ -52,19 +52,13 @@ export const authOptions: NextAuthOptions = {
 
     EmailProvider({
       // `server` is required by next-auth v4's type signature but unused —
-      // sendVerificationRequest below fully replaces the default SMTP send.
+      // sendVerificationRequest below fully replaces the default SMTP send
+      // with our own Gmail-SMTP-via-nodemailer implementation in mail.ts.
       server: { host: "", port: 0, auth: { user: "", pass: "" } },
-      from: process.env.EMAIL_FROM || "AgroLink <hello@agrolink.africa>",
       maxAge: 15 * 60, // magic link valid for 15 minutes
-      async sendVerificationRequest({
-  identifier,
-  url,
-}: {
-  identifier: string;
-  url: string;
-}) {
-  await sendMagicLinkEmail(identifier, url);
-},
+      async sendVerificationRequest({ identifier, url }) {
+        await sendMagicLinkEmail(identifier, url);
+      },
     } as any),
   ],
   callbacks: {
@@ -89,10 +83,12 @@ export const authOptions: NextAuthOptions = {
   },
 };
 
-export function isAdminSession(session: Session | null) {
+export function isAdminSession(session: { user?: { role?: string } } | null) {
   return session?.user?.role === "ADMIN";
 }
 
-export function isMemberSession(session: Session | null) {
+// Any authenticated non-admin session — buyer, supplier, farmer, student, or
+// plain visitor who's simply signed in.
+export function isMemberSession(session: { user?: { role?: string } } | null) {
   return !!session?.user && session.user.role !== "ADMIN";
 }

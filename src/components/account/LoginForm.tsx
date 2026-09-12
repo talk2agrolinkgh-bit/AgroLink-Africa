@@ -8,13 +8,24 @@ import { Field, inputClass } from "@/components/forms/FormField";
 export function LoginForm() {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     const email = new FormData(e.currentTarget).get("email") as string;
-    await signIn("email", { email, redirect: false, callbackUrl: "/account" });
+
+    const result = await signIn("email", { email, redirect: false, callbackUrl: "/account" });
     setLoading(false);
+
+    // signIn() with redirect:false does NOT throw on failure — it resolves
+    // with an `error` field. Checking it is the only way to know sending
+    // actually worked, rather than always claiming success.
+    if (result?.error) {
+      setError("We couldn't send that email right now. Please try again in a moment, or contact AgroLink on WhatsApp.");
+      return;
+    }
     setSent(true);
   }
 
@@ -34,6 +45,7 @@ export function LoginForm() {
       <Field label="Email address">
         <input required type="email" name="email" placeholder="you@company.com" className={inputClass} />
       </Field>
+      {error && <p className="text-sm text-red-600">{error}</p>}
       <button
         type="submit"
         disabled={loading}

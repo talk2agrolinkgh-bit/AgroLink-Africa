@@ -1,4 +1,5 @@
 // src/app/(public)/academy/page.tsx
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { SectionHead } from "@/components/ui/badges";
 import { EnrollButton } from "@/components/academy/EnrollButton";
@@ -106,6 +107,17 @@ export default async function AcademyPage() {
         <p className="text-xs text-ink-soft mt-3">
           Pricing shown in Ghana Cedis (GH₵), current as of publication. Contact AgroLink to confirm before payment.
         </p>
+
+        <div className="mt-8 p-5 rounded-xl2 border border-forest-100 bg-cream-50">
+          <p className="font-display font-semibold text-forest-800 text-sm">Already completed the training?</p>
+          <p className="text-xs text-ink-soft mt-1.5 leading-relaxed">
+            Graduates can apply for Sourcing Desk access — a private view of live sourcing requests where you can
+            offer to help fulfil them. Access is approved individually by AgroLink, not automatic.
+          </p>
+          <Link href="/sourcing-desk" className="inline-flex mt-3 text-xs font-semibold text-forest-700 hover:underline">
+            Apply for Sourcing Desk access →
+          </Link>
+        </div>
       </div>
     </section>
   );

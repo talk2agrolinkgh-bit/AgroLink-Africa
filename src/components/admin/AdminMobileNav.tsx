@@ -4,13 +4,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LayoutGrid, Package, Truck, Inbox, Leaf, BookOpen, Flag, LayoutTemplate } from "lucide-react";
+import { Menu, X, LayoutGrid, Package, Truck, Inbox, Leaf, BookOpen, Flag, LayoutTemplate, ShieldCheck } from "lucide-react";
 
 const NAV = [
   { href: "/admin", label: "Overview", icon: LayoutGrid },
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/suppliers", label: "Suppliers", icon: Truck },
   { href: "/admin/sourcing-requests", label: "Sourcing Requests", icon: Inbox },
+  { href: "/admin/sourcing-agents", label: "Sourcing Desk Access", icon: ShieldCheck },
   { href: "/admin/farm-projects", label: "Farm Projects", icon: Leaf },
   { href: "/admin/academy", label: "Academy", icon: BookOpen },
   { href: "/admin/leads", label: "Leads", icon: Flag },

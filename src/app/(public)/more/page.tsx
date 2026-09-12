@@ -15,6 +15,7 @@ const ITEMS: [string, string][] = [
   ["List Your Product", "/list-product"],
   ["Farm For You", "/farm"],
   ["Academy", "/academy"],
+  ["Sourcing Desk (trained agents)", "/sourcing-desk"],
   ["How It Works", "/how-it-works"],
   ["Contact AgroLink", "/contact"],
 ];

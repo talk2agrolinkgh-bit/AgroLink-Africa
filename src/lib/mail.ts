@@ -1,42 +1,64 @@
 // src/lib/mail.ts
-// Sends the NextAuth magic-link email via Resend's HTTP API directly (no SDK
-// dependency needed — one fetch call). Requires RESEND_API_KEY to be set;
-// until it is, this throws clearly instead of silently pretending to send.
+// Sends the NextAuth magic-link email via Gmail SMTP (using your own Gmail
+// account + an App Password) — chosen specifically because it requires no
+// domain ownership or verification. Resend, SendGrid, Mailgun, Postmark,
+// etc. all refuse to send from a free/public email domain (gmail.com,
+// outlook.com, ...) without a verified custom domain, which makes them a
+// dead end until AgroLink owns its own domain.
+//
+// Setup (no signup beyond a Gmail account you already have):
+//   1. Enable 2-Step Verification: myaccount.google.com/security
+//   2. Generate an App Password: myaccount.google.com/apppasswords
+//      (choose "Mail" as the app — Google gives you a 16-character code)
+//   3. Set GMAIL_USER to your Gmail address and GMAIL_APP_PASSWORD to that
+//      16-character code (not your normal Gmail password) in .env
+//
+// Gmail requires the "From" address to match the authenticated account, so
+// emails will come from your actual Gmail address (with an "AgroLink"
+// display name) rather than something like hello@agrolink.africa — that's
+// expected, and fine for now. Once you have a real domain, migrate to
+// Resend/Brevo/SendGrid: swap the transporter below for their HTTP API
+// (see the git history of this file for the Resend version this replaced).
+
+import nodemailer from "nodemailer";
+
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
+const FROM_NAME = process.env.EMAIL_FROM_NAME || "AgroLink";
 
 export async function sendMagicLinkEmail(to: string, url: string) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM || "AgroLink <hello@agrolink.africa>";
-
-  if (!apiKey) {
+  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
     // Fail loudly in development so it's obvious email isn't configured yet,
     // rather than pretending a link was sent.
     console.error(
-      "[mail] RESEND_API_KEY is not set — magic-link email was NOT sent.\n" +
+      "[mail] GMAIL_USER / GMAIL_APP_PASSWORD is not set — magic-link email was NOT sent.\n" +
         `[mail] Sign-in link for ${to}: ${url}`
     );
     if (process.env.NODE_ENV === "production") {
-      throw new Error("Email is not configured (RESEND_API_KEY missing).");
+      throw new Error("Email is not configured (GMAIL_USER / GMAIL_APP_PASSWORD missing).");
     }
     return; // in dev, the link is printed to the console so you can still test the flow
   }
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+  });
+
+  try {
+    await transporter.sendMail({
+      from: `"${FROM_NAME}" <${GMAIL_USER}>`,
       to,
       subject: "Your AgroLink sign-in link",
       html: magicLinkTemplate(url),
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Resend failed to send magic-link email: ${res.status} ${body}`);
+    });
+  } catch (err: any) {
+    // Always log the real reason server-side (Vercel → your project → Logs).
+    // The most common cause here is an incorrect App Password, or using
+    // your normal Gmail password instead of a generated App Password
+    // (Gmail rejects normal passwords for SMTP when 2FA is enabled).
+    console.error(`[mail] Gmail SMTP rejected the send to ${to}:`, err?.message || err);
+    throw new Error(`Failed to send magic-link email via Gmail: ${err?.message || "unknown error"}`);
   }
 }
 

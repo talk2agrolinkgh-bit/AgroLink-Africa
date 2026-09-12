@@ -26,13 +26,16 @@ src/app/
     farm/[slug]/opengraph-image.tsx    Per-project OG card (name + region/crop, from live data)
     academy/page.tsx               Contract Command + Produce-Sourcing Academy (curriculum from DB)
     sourcing/page.tsx              Start Sourcing form
+    sourcing-desk/page.tsx         Gated: open sourcing requests for APPROVED agents only —
+                                    handles SIGNED_OUT/NONE/PENDING/REVOKED/APPROVED as distinct states
     list-product/page.tsx          List Your Product form
     how-it-works/page.tsx
     contact/page.tsx
     login/page.tsx                 Request a magic-link sign-in email
     login/check-email/page.tsx     NextAuth's configured verifyRequest fallback
     account/page.tsx                Signed-in buyer/supplier dashboard — their sourcing
-                                    requests, farm participation, enrollments, supplier profile
+                                    requests, farm participation, enrollments, supplier profile,
+                                    and Sourcing Desk status if they've applied
     more/page.tsx                  Mobile-only catch-all for secondary links + account/sign-in
 
   admin/
@@ -43,13 +46,20 @@ src/app/
       products/page.tsx            Table + status/publish/feature toggles + Add Product modal
       suppliers/page.tsx           Table + verify/suspend (writes VerificationRecord)
       sourcing-requests/page.tsx   Kanban, drag-and-drop across all 7 stages
+      sourcing-agents/page.tsx     Review Sourcing Desk applications — approve/revoke, shown
+                                    alongside each applicant's enrollment history for context
       farm-projects/page.tsx       Stage control + Post Update modal
       academy/page.tsx             Course cards + curriculum editor modal + enrollments table
       leads/page.tsx               Unified inbox, mark handled/unhandled
       cms/page.tsx                 Editable homepage text blocks
 
   api/
-    sourcing-requests/route.ts        public POST/GET — elevates signed-in user to BUYER
+    sourcing-requests/route.ts        public POST (elevates to BUYER) / GET (admin-only — was
+                                       unauthenticated, this was the actual leak that prompted
+                                       the Sourcing Desk feature; fixed)
+    sourcing-desk/apply/route.ts      public POST — NONE -> PENDING for the signed-in user
+    sourcing-desk/[id]/respond/route.ts  public POST — 403s unless sourcingAgentStatus is
+                                       APPROVED; creates a Message, bumps NEW -> SOURCING
     supplier-submissions/route.ts     public POST
     product-inquiries/route.ts        public POST — "Request Quotation" on product pages, elevates to BUYER
     farm-participation/route.ts       public POST — "Request Participation" on farm pages, elevates to FARMER
@@ -63,6 +73,7 @@ src/app/
       suppliers/route.ts                GET list
       suppliers/[id]/route.ts           PATCH status + writes VerificationRecord + elevates to SUPPLIER on VERIFIED
       sourcing-requests/[id]/route.ts   PATCH status (kanban moves)
+      sourcing-agents/[id]/route.ts     PATCH status — approve/revoke Sourcing Desk access
       farm-projects/route.ts            GET list, POST create
       farm-projects/[id]/route.ts       PATCH stage/published/paymentModel
       farm-projects/[id]/updates/route.ts  POST — the "Post Update" action (photoUrls/videoUrls)
@@ -82,6 +93,9 @@ src/components/
                 route and swaps to the same success copy used in the HTML prototype
   academy/      EnrollButton (client) — records interest via /api/academy-enrollments,
                 then opens WhatsApp
+  sourcing-desk/  ApplyButton, RespondForm (client) — the two writes an approved agent
+                can make; access itself is checked server-side in the page and again in
+                the API route, never trusted from the client alone
   account/      SignOutButton (client) — used on /account
   uploads/      MediaUploader (client) — direct-to-Cloudinary image/video/document
                 upload with inline previews, progress, and automatic cleanup-on-remove;
@@ -89,8 +103,8 @@ src/components/
   ui/           badges.tsx — VerificationBadge, StagePill, DemoDataBadge, SectionHead
                 (shared across every public page)
   admin/        AdminSidebar, AdminMobileNav, Toaster, ui.tsx, ProductsTable,
-                SuppliersTable, SourcingRequestsBoard, FarmProjectCard, LeadsTable,
-                CmsEditor, AddProductModal, AddFarmProjectModal, PostUpdateModal,
+                SuppliersTable, SourcingRequestsBoard, SourcingAgentsTable, FarmProjectCard,
+                LeadsTable, CmsEditor, AddProductModal, AddFarmProjectModal, PostUpdateModal,
                 CurriculumModal
 
 src/lib/
@@ -101,11 +115,16 @@ src/lib/
                        back out of a secure_url, scoped to the "agrolink/" folder
   roles.ts         elevateRoleIfVisitor() — the one-way VISITOR → role promotion
                     used by all four elevation trigger points (see api/ list above)
+  sourcing-desk.ts getSourcingDeskAccess() — the single source of truth for whether
+                    a signed-in user can see open sourcing requests; returns a
+                    discriminated union (SIGNED_OUT/NONE/PENDING/REVOKED/APPROVED)
+                    so the page can't accidentally treat an unhandled case as allowed
   auth.ts          NextAuth config — one instance, two providers: Credentials
                    (admin, id "admin-credentials", bypasses the Prisma adapter)
                    and Email (public magic-link, via the Prisma adapter)
-  mail.ts          Sends the magic-link email via Resend's HTTP API; logs the
-                   link to the console instead if RESEND_API_KEY isn't set
+  mail.ts          Sends the magic-link email via Gmail SMTP (nodemailer +
+                   an App Password — no domain ownership required); logs the
+                   link to the console instead if GMAIL_USER/GMAIL_APP_PASSWORD isn't set
   og-logo.ts       The real emblem as a base64 data URI — embedded directly
                    into OG image cards so generation never depends on the
                    site being publicly reachable
@@ -159,3 +178,9 @@ Why this shape:
   only the static offline fallback and hashed `_next/static` build assets.
   This app's data (prices, verification status, sourcing-request stages)
   changes too often for a more aggressive caching strategy to be safe.
+- Sourcing Desk access is a separate field (`User.sourcingAgentStatus`) from
+  `role`, not a repurposed STUDENT role check — someone can complete the
+  Academy and never apply, or apply and get rejected, and `role` alone can't
+  represent "eligible but not yet approved." The agent-facing page never
+  selects buyer name/company/email/whatsapp from the database at all (not
+  just hidden in the UI) — there's no query result to accidentally leak.

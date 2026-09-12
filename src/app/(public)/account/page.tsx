@@ -1,5 +1,6 @@
 // src/app/(public)/account/page.tsx
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions, isAdminSession } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -31,7 +32,7 @@ export default async function AccountPage() {
     // Read the live role from the database rather than the session token —
     // role elevation (see src/lib/roles.ts) happens server-side between
     // sign-ins and doesn't retroactively update an already-issued JWT.
-    db.user.findUnique({ where: { id: userId }, select: { role: true, name: true, email: true } }),
+    db.user.findUnique({ where: { id: userId }, select: { role: true, name: true, email: true, sourcingAgentStatus: true } }),
     db.sourcingRequest.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
     db.farmParticipant.findMany({ where: { userId }, include: { farmProject: true }, orderBy: { createdAt: "desc" } }),
     db.enrollment.findMany({ where: { userId }, include: { course: true }, orderBy: { createdAt: "desc" } }),
@@ -64,6 +65,28 @@ export default async function AccountPage() {
             <p className="text-xs text-ink-soft mt-0.5">Supplier profile · {supplierProfile.country}</p>
           </div>
           <VerificationBadge status={supplierProfile.status} />
+        </div>
+      )}
+
+      {currentUser?.sourcingAgentStatus && currentUser.sourcingAgentStatus !== "NONE" && (
+        <div className="mb-8 p-5 rounded-xl2 border border-forest-100 bg-cream-50 card-shadow flex items-center justify-between">
+          <div>
+            <p className="font-display font-semibold text-forest-800">Sourcing Desk</p>
+            <p className="text-xs text-ink-soft mt-0.5">
+              {currentUser.sourcingAgentStatus === "APPROVED" && "You can view and respond to open sourcing requests."}
+              {currentUser.sourcingAgentStatus === "PENDING" && "Your application is under review."}
+              {currentUser.sourcingAgentStatus === "REVOKED" && "Access has been withdrawn."}
+            </p>
+          </div>
+          {currentUser.sourcingAgentStatus === "APPROVED" ? (
+            <Link href="/sourcing-desk" className="text-xs font-semibold text-forest-700 hover:underline shrink-0">
+              Open →
+            </Link>
+          ) : (
+            <span className="shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full bg-gold-100 text-gold-700">
+              {currentUser.sourcingAgentStatus}
+            </span>
+          )}
         </div>
       )}
 

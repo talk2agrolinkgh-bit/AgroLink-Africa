@@ -6,7 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
-  LayoutGrid, Package, Truck, Inbox, Leaf, BookOpen, Flag, LayoutTemplate, LogOut,
+  LayoutGrid, Package, Truck, Inbox, Leaf, BookOpen, Flag, LayoutTemplate, LogOut, ShieldCheck,
 } from "lucide-react";
 
 const NAV = [
@@ -14,6 +14,7 @@ const NAV = [
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/suppliers", label: "Suppliers", icon: Truck },
   { href: "/admin/sourcing-requests", label: "Sourcing Requests", icon: Inbox },
+  { href: "/admin/sourcing-agents", label: "Sourcing Desk Access", icon: ShieldCheck },
   { href: "/admin/farm-projects", label: "Farm Projects", icon: Leaf },
   { href: "/admin/academy", label: "Academy", icon: BookOpen },
   { href: "/admin/leads", label: "Leads", icon: Flag },

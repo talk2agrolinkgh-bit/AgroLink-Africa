@@ -84,6 +84,14 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Sourcing Desk access — separate from `role`. Completing the
+  // Produce-Sourcing Academy makes someone eligible to apply, but an admin
+  // still has to approve them before they can see or respond to live
+  // sourcing requests. See src/lib/sourcing-desk.ts.
+  sourcingAgentStatus     SourcingAgentStatus @default(NONE)
+  sourcingAgentAppliedAt  DateTime?
+  sourcingAgentApprovedAt DateTime?
+
   profile             Profile?
   supplierProfile     Supplier?
   sourcingRequests    SourcingRequest[]
@@ -95,6 +103,13 @@ model User {
   messagesSent        Message[]          @relation("MessageSender")
   accounts            Account[]
   sessions            Session[]
+}
+
+enum SourcingAgentStatus {
+  NONE     // hasn't applied
+  PENDING  // applied, awaiting admin review
+  APPROVED // can view and respond to open sourcing requests
+  REVOKED  // was approved, access since withdrawn
 }
 
 // ---------- NEXTAUTH ADAPTER MODELS ----------

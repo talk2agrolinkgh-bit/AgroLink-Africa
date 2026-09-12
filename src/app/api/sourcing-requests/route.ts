@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authOptions, isAdminSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { elevateRoleIfVisitor } from "@/lib/roles";
 
@@ -72,8 +72,16 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ id: request.id, status: request.status }, { status: 201 });
 }
 
-export async function GET() {
-  // Admin-only in production — protect with auth middleware before shipping.
+export async function GET(req: NextRequest) {
+  // This previously had no auth check at all — anyone who found this URL
+  // could pull every sourcing request, including buyer name/email/WhatsApp.
+  // The admin dashboard doesn't even use this (it queries Prisma directly
+  // in a server component); this only exists for future tooling/exports,
+  // so it's admin-only like every other route that touches raw buyer data.
+  const session = await getServerSession(authOptions);
+  if (!isAdminSession(session)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const requests = await db.sourcingRequest.findMany({ orderBy: { createdAt: "desc" } });
   return NextResponse.json(requests);
 }
