@@ -30,6 +30,7 @@ export function Footer() {
           <p className="font-display text-sm font-semibold mb-3 text-gold-200">For Business</p>
           <ul className="space-y-2 text-sm text-cream-100/70">
             <li><Link href="/list-product" className="hover:text-cream-50">List Your Product</Link></li>
+            <li><Link href="/sourcing-desk" className="hover:text-cream-50">Sourcing Desk</Link></li>
             <li><Link href="/how-it-works" className="hover:text-cream-50">How It Works</Link></li>
             <li><Link href="/contact" className="hover:text-cream-50">Contact AgroLink</Link></li>
           </ul>
