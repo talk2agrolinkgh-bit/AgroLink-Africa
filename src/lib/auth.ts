@@ -56,7 +56,14 @@ export const authOptions: NextAuthOptions = {
       // with our own Gmail-SMTP-via-nodemailer implementation in mail.ts.
       server: { host: "", port: 0, auth: { user: "", pass: "" } },
       maxAge: 15 * 60, // magic link valid for 15 minutes
-      async sendVerificationRequest({ identifier, url }) {
+
+      async sendVerificationRequest({
+        identifier,
+        url,
+      }: {
+        identifier: string;
+        url: string;
+      }) {
         await sendMagicLinkEmail(identifier, url);
       },
     } as any),
